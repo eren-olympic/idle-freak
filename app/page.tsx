@@ -1,103 +1,205 @@
-import Image from "next/image";
+'use client';
+
+import { useState, useEffect } from 'react';
+import { PhotocardItem } from '@/components/PhotocardItem';
+import { FilterSidebar } from '@/components/FilterSidebar';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Button } from '@/components/ui/button';
+import { RefreshCw } from 'lucide-react';
+import { Photocard, FilterOptions } from '@/lib/types';
+import { convertProductToPhotocard, filterPhotocards, ProductData } from '@/lib/utils';
 
 export default function Home() {
-  return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+  const [photocards, setPhotocards] = useState<Photocard[]>([]);
+  const [filteredPhotocards, setFilteredPhotocards] = useState<Photocard[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [favorites, setFavorites] = useState<Set<number>>(new Set());
+  const [filters, setFilters] = useState<FilterOptions>({
+    members: [],
+    albums: [],
+    rarity: []
+  });
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+  // 載入小卡數據
+  const loadPhotocards = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const response = await fetch('/api/products');
+      if (!response.ok) {
+        throw new Error('Failed to load photocards');
+      }
+      
+      const products: ProductData[] = await response.json();
+      const convertedPhotocards = products.map(convertProductToPhotocard);
+      
+      setPhotocards(convertedPhotocards);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 初始載入
+  useEffect(() => {
+    loadPhotocards();
+  }, []);
+
+  // 套用篩選
+  useEffect(() => {
+    const filtered = filterPhotocards(photocards, filters);
+    setFilteredPhotocards(filtered);
+  }, [photocards, filters]);
+
+  // 處理收藏切換
+  const handleToggleFavorite = (id: number) => {
+    setFavorites(prev => {
+      const newFavorites = new Set(prev);
+      if (newFavorites.has(id)) {
+        newFavorites.delete(id);
+      } else {
+        newFavorites.add(id);
+      }
+      return newFavorites;
+    });
+  };
+
+  // 處理交換請求
+  const handleRequestExchange = (id: number) => {
+    // TODO: 實現交換請求邏輯
+    console.log('Exchange request for photocard:', id);
+    // 這裡可以打開模態框選擇要交換的小卡
+  };
+
+  // 載入中狀態
+  const LoadingSkeleton = () => (
+    <div className="masonry-grid">
+      {Array.from({ length: 12 }).map((_, index) => (
+        <div key={index} className="masonry-item">
+          <div className="rounded-xl overflow-hidden bg-card/50 animate-pulse">
+            <Skeleton className="aspect-[3/4] w-full" />
+            <div className="p-3 space-y-2">
+              <Skeleton className="h-4 w-3/4" />
+              <Skeleton className="h-3 w-1/2" />
+              <div className="flex justify-between">
+                <Skeleton className="h-3 w-1/4" />
+                <Skeleton className="h-3 w-1/4" />
+              </div>
+            </div>
+          </div>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
+      ))}
+    </div>
+  );
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-background via-background to-purple-950/20">
+      <div className="container mx-auto px-4 py-8">
+        <div className="flex flex-col lg:flex-row gap-8">
+          {/* 篩選側邊欄 */}
+          <FilterSidebar
+            filters={filters}
+            onFiltersChange={setFilters}
           />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+
+          {/* 主要內容區域 */}
+          <div className="flex-1">
+            {/* 標題和統計 */}
+            <div className="mb-8">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h1 className="text-3xl font-bold neon-text mb-2">
+                    探索小卡
+                  </h1>
+                  <p className="text-muted-foreground">
+                    發現和交換來自 NEVERLAND 社群的珍貴小卡
+                  </p>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={loadPhotocards}
+                  disabled={loading}
+                  className="hover:bg-primary/10"
+                >
+                  <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+                  重新載入
+                </Button>
+              </div>
+
+              <div className="flex items-center space-x-6 text-sm text-muted-foreground">
+                <div>
+                  總共 <span className="text-foreground font-semibold">{photocards.length}</span> 張小卡
+                </div>
+                <div>
+                  顯示 <span className="text-foreground font-semibold">{filteredPhotocards.length}</span> 張結果
+                </div>
+                {favorites.size > 0 && (
+                  <div>
+                    收藏 <span className="text-red-500 font-semibold">{favorites.size}</span> 張
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* 錯誤狀態 */}
+            {error && (
+              <div className="text-center py-12">
+                <p className="text-red-500 mb-4">{error}</p>
+                <Button onClick={loadPhotocards} className="neon-button">
+                  重試
+                </Button>
+              </div>
+            )}
+
+            {/* 載入中狀態 */}
+            {loading && <LoadingSkeleton />}
+
+            {/* 小卡網格 */}
+            {!loading && !error && (
+              <>
+                {filteredPhotocards.length === 0 ? (
+                  <div className="text-center py-12">
+                    <p className="text-muted-foreground mb-4">
+                      {filters.members.length > 0 || filters.albums.length > 0 || filters.rarity.length > 0
+                        ? '沒有找到符合條件的小卡'
+                        : '目前沒有小卡'}
+                    </p>
+                    {(filters.members.length > 0 || filters.albums.length > 0 || filters.rarity.length > 0) && (
+                      <Button 
+                        variant="outline" 
+                        onClick={() => setFilters({ members: [], albums: [], rarity: [] })}
+                      >
+                        清除所有篩選
+                      </Button>
+                    )}
+                  </div>
+                ) : (
+                  <div className="masonry-grid">
+                    {filteredPhotocards.map((photocard, index) => (
+                      <PhotocardItem
+                        key={photocard.id}
+                        photocard={photocard}
+                        onToggleFavorite={handleToggleFavorite}
+                        onRequestExchange={handleRequestExchange}
+                        isFavorite={favorites.has(photocard.id)}
+                        className={`animate-fade-in-up opacity-0`}
+                        style={{
+                          animationDelay: `${index * 100}ms`,
+                          animationFillMode: 'forwards'
+                        } as React.CSSProperties}
+                      />
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
